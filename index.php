@@ -14,12 +14,20 @@
 	<title>Baza danych</title>
     <link rel="stylesheet" href="style.php" media="screen">
 </head>
-<body>	
-	<form action="zaloguj.php" method="post">	
-		Login: <br /> <input type="text" name="login" /> <br />
-		Hasło: <br /> <input type="password" name="haslo" /> <br /><br />
-		<input type="submit" value="Zaloguj się" />
-	</form>
+<body>
+	<div class='card'>
+		<div id='edytuj'>
+		<form action="zaloguj.php" method="post">	
+			<label for='login'>Login</label>
+			<input type="text" id='login' name="login"> 
+
+			<label for='haslo'>Hasło</label>
+			<input type="password" id='haslo' name="haslo">
+
+			<input type="submit" value="Zaloguj się">
+		</form>
+		</div>
+	</div>
 <?php
 	if(isset($_SESSION['blad']))	echo $_SESSION['blad'];
 ?>
