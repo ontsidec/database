@@ -23,11 +23,11 @@ if (!isset($_SESSION['zalogowany']))
 <body>
 	<ul>
 		<li><a href="index.php">Strona główna</a></li>
-		<li><a class="active" href="zolnierz.php">Żołnierze</a></li>
+        <li><a href="zolnierz.php">Żołnierze</a></li>
 		<li><a href="nalezy.php">Służba</a></li>
 		<li><a href="druzyna.php">Drużyny</a></li>
-		<li><a href="pluton.php">Plutony</a></li>
-		<li><a href="kompania.php">Kompanie</a></li>
+		<li><a class="active" href="pluton.php">Plutony</a></li>
+        <li><a href="kompania.php">Kompanie</a></li>
 		<div style="float: right">
 			<?php
 				echo "<li><div class='witaj'><a>Witaj " .$_SESSION['user']."!</a></div></li>";
@@ -42,31 +42,41 @@ if (!isset($_SESSION['zalogowany']))
 
 	$polaczenie = pg_connect("dbname = '$db_name' user = '$db_user' password = '$db_password' host = '$host'") or die("Nie mogę polączyć się z baza danych!");
 
-	$tabela = 'zolnierz';
-	$nazwa_id = 'id_zolnierza';
+	$tabela = 'pluton';
+	$nazwa_id = 'id_plutonu';
 
-	$query = "SELECT * FROM stopnie;";
+	$query = "SELECT id_kompanii, nr_kompanii FROM kompania;";
 	$wynik = pg_query($polaczenie, $query);
 	$liczba_wierszy = pg_num_rows($wynik);
 
 	echo "
 		<div id='dodaj'>
 			<form action=dodaj.php method=POST>
-				<label for='imie'>Imię</label>
-				<input type='text' id='imie' name='imie'>
+				<label for='nr_plutonu'>Nr plutonu</label>
+				<input type='text' id='nr_plutonu' name='nr_plutonu'>
 
-				<label for='nazwisko'>Nazwisko</label>
-				<input type='text' id='nazwisko' name=nazwisko>
+                <label for='nr_kompanii'>Nr kompanii</label>
+				<select id='nr_kompanii' name='nr_kompanii'>";
 
-				<label for='nr_ksiazeczki'>Nr książeczki</label>
-				<input type='text' id='nr_ksiazeczki' name='nr_ksiazeczki'>
-
-				<label for='stopien'>Stopień</label>
-				<select id='stopien' name='stopien'>";
 				for($w = 0; $w < $liczba_wierszy; $w++) {
-					$nazwa_stopnia = pg_fetch_result($wynik, $w, 'nazwa_stopnia');
-					$id_stopnia = pg_fetch_result($wynik, $w, 'id_stopnia');
-					echo "<option value=$id_stopnia>$nazwa_stopnia</option>";
+					$id_kompanii = pg_fetch_result($wynik, $w, 'id_kompanii');
+					$nr_kompanii = pg_fetch_result($wynik, $w, 'nr_kompanii');
+					echo "<option value=$id_kompanii>$nr_kompanii</option>";
+				}
+    echo "
+                </select>
+				<label for='kto_dowodzi'>Dowódca</label>
+				<select id='kto_dowodzi' name='kto_dowodzi'>";
+
+                $query = "SELECT id_zolnierza, imie, nazwisko FROM zolnierz WHERE stopien > '11';";
+                $wynik = pg_query($polaczenie, $query);
+                $liczba_wierszy = pg_num_rows($wynik);
+
+				for($w = 0; $w < $liczba_wierszy; $w++) {
+					$id_zolnierza = pg_fetch_result($wynik, $w, 'id_zolnierza');
+					$imie = pg_fetch_result($wynik, $w, 'imie');
+                    $nazwisko = pg_fetch_result($wynik, $w, 'nazwisko');
+					echo "<option value=$id_zolnierza>$imie $nazwisko</option>";
 				}
 	echo "
 				</select>
@@ -125,9 +135,9 @@ if (!isset($_SESSION['zalogowany']))
 		unset($_SESSION['success']);
 	}
 
-	$query = "SELECT z.id_zolnierza, z.imie, z.nazwisko, z.nr_ksiazeczki, s.nazwa_stopnia 
-			FROM zolnierz z JOIN stopnie s ON  z.stopien = s.id_stopnia 
-			ORDER BY z.id_zolnierza;";
+	$query = "SELECT p.id_plutonu, p.nr_plutonu, k.nr_kompanii, z.imie, z.nazwisko 
+			FROM pluton p JOIN zolnierz z ON  p.kto_dowodzi = z.id_zolnierza JOIN kompania k ON p.nr_kompanii = k.id_kompanii
+			ORDER BY p.id_plutonu;";
 
 	$wynik = pg_query($polaczenie, $query);
 
@@ -175,13 +185,13 @@ if (!isset($_SESSION['zalogowany']))
 
 	if ($_POST)	{
 		$id = $_POST['idos'];
-		$query = "SELECT z.id_zolnierza, z.imie, z.nazwisko, z.nr_ksiazeczki, s.nazwa_stopnia 
-			FROM zolnierz z JOIN stopnie s ON  id_zolnierza = $id AND z.stopien = s.id_stopnia;";
+		$query = "SELECT p.nr_plutonu, k.nr_kompanii, z.imie, z.nazwisko 
+			FROM pluton p JOIN zolnierz z ON p.kto_dowodzi = z.id_zolnierza AND p.id_plutonu = $id JOIN kompania k ON p.nr_kompanii = k.id_kompanii;";
 		$wynik = pg_query($query);
+        $nr_plutonu = pg_fetch_result($wynik, 0, 'nr_plutonu');
+		$nr_kompanii = pg_fetch_result($wynik, 0, 'nr_kompanii');
 		$imie = pg_fetch_result($wynik, 0, 'imie');
-		$nazwisko = pg_fetch_result($wynik, 0, 'nazwisko');
-		$nr_ksiazeczki = pg_fetch_result($wynik, 0, 'nr_ksiazeczki');
-		$nazwa_stopnia = pg_fetch_result($wynik, 0, 'nazwa_stopnia');
+        $nazwisko = pg_fetch_result($wynik, 0, 'nazwisko');
 
 		echo "
 			<div id='myModal' class='modal'>
@@ -194,31 +204,41 @@ if (!isset($_SESSION['zalogowany']))
 						<div id='formularz'>
 							<div id='tytul-formularza'>
 								<div id='tytul'>Podaj nowe dane dla:<br></div>  
-								<div id='dane'>$imie $nazwisko $nr_ksiazeczki $nazwa_stopnia<br></div> 
+								<div id='dane'>$nr_plutonu $nr_kompanii $imie $nazwisko<br></div> 
 							</div>";
 
-						$query = "SELECT * FROM stopnie;";
-						$wynik = pg_query($polaczenie, $query);
-						$liczba_wierszy = pg_num_rows($wynik);
+                        $query = "SELECT id_kompanii, nr_kompanii FROM kompania;";
+                        $wynik = pg_query($polaczenie, $query);
+                        $liczba_wierszy = pg_num_rows($wynik);
 
 						echo "
 							<form action=edytuj.php method=POST>
-								<label for='imie'>Imię</label>
-								<input type='text' id='imie' name='imie'>
+                                <label for='nr_plutonu'>Nr plutonu</label>
+                                <input type='text' id='nr_plutonu' name='nr_plutonu'>
 
-								<label for='nazwisko'>Nazwisko</label>
-								<input type='text' id='nazwisko' name=nazwisko>
+                                <label for='nr_kompanii'>Nr kompanii</label>
+                                <select id='nr_kompanii' name='nr_kompanii'>";
 
-								<label for='nr_ksiazeczki'>Nr książeczki</label>
-								<input type='text' id='nr_ksiazeczki' name=nr_ksiazeczki>
+                                for($w = 0; $w < $liczba_wierszy; $w++) {
+                                    $id_kompanii = pg_fetch_result($wynik, $w, 'id_kompanii');
+                                    $nr_kompanii = pg_fetch_result($wynik, $w, 'nr_kompanii');
+                                    echo "<option value=$id_kompanii>$nr_kompanii</option>";
+                                }
+                        echo "
+                                </select>
+                                <label for='kto_dowodzi'>Dowódca</label>
+                                <select id='kto_dowodzi' name='kto_dowodzi'>";
 
-								<label for='stopien'>Stopień</label>
-								<select id='stopien' name='stopien'>";
-								for($w = 0; $w < $liczba_wierszy; $w++) {
-									$nazwa_stopnia = pg_fetch_result($wynik, $w, 'nazwa_stopnia');
-									$id_stopnia = pg_fetch_result($wynik, $w, 'id_stopnia');
-									echo "<option value=$id_stopnia>$nazwa_stopnia</option>";
-								}
+                                $query = "SELECT id_zolnierza, imie, nazwisko FROM zolnierz WHERE stopien > '11';";
+                                $wynik = pg_query($polaczenie, $query);
+                                $liczba_wierszy = pg_num_rows($wynik);
+
+                                for($w = 0; $w < $liczba_wierszy; $w++) {
+                                    $id_zolnierza = pg_fetch_result($wynik, $w, 'id_zolnierza');
+                                    $imie = pg_fetch_result($wynik, $w, 'imie');
+                                    $nazwisko = pg_fetch_result($wynik, $w, 'nazwisko');
+                                    echo "<option value=$id_zolnierza>$imie $nazwisko</option>";
+			                	}
 						echo "
 								</select>
 
